@@ -3,6 +3,8 @@ package com.example.quiz.quiz
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.mapSaver
 
 class QuizStateHolder {
 
@@ -65,7 +67,45 @@ class QuizStateHolder {
             }
         }
     }
+
+    companion object {
+
+        val Saver: Saver<QuizStateHolder, Any> = mapSaver(
+            save = { holder ->
+                val s = holder.uiState
+                mapOf(
+                    "screen" to when (s.screen) {
+                        QuizScreen.Welcome -> "welcome"
+                        QuizScreen.Question -> "question"
+                        QuizScreen.Result -> "result"
+                    },
+                    "currentIndex" to s.currentIndex,
+                    "selectedIndex" to s.selectedIndex,
+                    "correctCount" to s.correctCount
+                )
+            },
+            restore = { map ->
+                val screen = when (map["screen"] as String) {
+                    "welcome" -> QuizScreen.Welcome
+                    "question" -> QuizScreen.Question
+                    else -> QuizScreen.Result
+                }
+
+                QuizStateHolder().apply {
+                    uiState = QuizUiState(
+                        screen = screen,
+                        questions = defaultQuestions(),
+                        currentIndex = map["currentIndex"] as Int,
+                        selectedIndex = map["selectedIndex"] as Int?,
+                        correctCount = map["correctCount"] as Int
+                    )
+                }
+            }
+        )
+    }
 }
+
+/* ---------- ВОПРОСЫ ---------- */
 
 private fun defaultQuestions(): List<QuizQuestion> = listOf(
     QuizQuestion(

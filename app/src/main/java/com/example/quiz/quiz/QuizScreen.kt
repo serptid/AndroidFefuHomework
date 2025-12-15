@@ -2,6 +2,9 @@ package com.example.quiz.quiz
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -38,7 +41,10 @@ fun QuizRoot(state: QuizUiState, onEvent: (QuizEvent) -> Unit) {
 @Composable
 private fun WelcomeScreen(onStart: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.Center
     ) {
         Text(
@@ -63,44 +69,57 @@ private fun QuestionScreen(
     onSelect: (Int) -> Unit,
     onNext: () -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .navigationBarsPadding()
+            .padding(20.dp)
+    ) {
 
-        Text(
-            "Вопрос $index из $total",
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center
-        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+        ) {
 
-        Spacer(Modifier.height(12.dp))
+            Text(
+                "Вопрос $index из $total",
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
 
-        Text(
-            question.text,
-            style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center
-        )
+            Spacer(Modifier.height(12.dp))
 
-        Spacer(Modifier.height(20.dp))
+            Text(
+                question.text,
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
 
-        question.answers.forEachIndexed { i, ans ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 6.dp)
-                    .clickable { onSelect(i) }
-            ) {
-                Row(modifier = Modifier.padding(14.dp)) {
-                    RadioButton(
-                        selected = selectedIndex == i,
-                        onClick = { onSelect(i) }
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Text(ans)
+            Spacer(Modifier.height(20.dp))
+
+            question.answers.forEachIndexed { i, ans ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp)
+                        .clickable { onSelect(i) }
+                ) {
+                    Row(modifier = Modifier.padding(14.dp)) {
+                        RadioButton(
+                            selected = selectedIndex == i,
+                            onClick = { onSelect(i) }
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text(ans)
+                    }
                 }
             }
-        }
 
-        Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(12.dp))
+        }
 
         Button(
             onClick = onNext,
@@ -117,7 +136,10 @@ private fun ResultScreen(correct: Int, total: Int, onRestart: () -> Unit) {
     val percent = correct * 100 / total
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.Center
     ) {
         Text(
