@@ -28,38 +28,35 @@ class MainActivity : ComponentActivity() {
                     }
 
                     composable("input") {
-                        InputScreen(vm) { id ->
-                            nav.navigate("result/$id")
-                        }
+                        InputScreen(
+                            vm = vm,
+                            onCalculate = { id -> nav.navigate("result/$id") }
+                        )
                     }
 
                     composable("history") {
                         HistoryScreen(
                             vm = vm,
-                            onSelect = { id ->
-                                nav.navigate("result/$id")
-                            }
+                            onOpen = { id -> nav.navigate("result/$id") }
                         )
                     }
 
                     composable(
-                        "result/{id}",
-                        arguments = listOf(navArgument("id") {
-                            type = NavType.StringType
-                        })
-                    ) { backStack ->
-                        val id = backStack.arguments!!.getString("id")!!
+                        route = "result/{id}",
+                        arguments = listOf(navArgument("id") { type = NavType.StringType })
+                    ) { back ->
+                        val id = back.arguments!!.getString("id")!!
 
                         ResultScreen(
                             vm = vm,
                             id = id,
-                            onEdit = { nav.popBackStack() },
                             onNew = {
                                 vm.reset()
                                 nav.navigate("home") {
                                     popUpTo("home") { inclusive = true }
                                 }
-                            }
+                            },
+                            onHistory = { nav.navigate("history") }
                         )
                     }
                 }

@@ -33,7 +33,7 @@ class SplitViewModel : ViewModel() {
 
         val id = UUID.randomUUID().toString()
         _history.add(0, CalcResult(id, tip, sum, per))
-        if (_history.size > 5) _history.removeAt(_history.lastIndex)
+        if (_history.size > 10) _history.removeAt(_history.lastIndex)
 
         return id
     }
