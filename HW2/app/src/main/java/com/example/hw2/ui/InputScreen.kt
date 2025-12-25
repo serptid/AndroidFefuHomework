@@ -17,16 +17,19 @@ fun InputScreen(
     onCalculate: (String) -> Unit
 ) {
     Box(
-        modifier = Modifier.fillMaxSize().background(Color.Black),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
 
             OutlinedTextField(
-                value = vm.total,
-                onValueChange = { vm.total = it },
+                value = vm.ui.total,
+                onValueChange = vm::onTotalChange,
                 label = { Text("Total", color = Color.White) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = vm.ui.totalError != null,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White,
@@ -41,10 +44,11 @@ fun InputScreen(
             Spacer(Modifier.height(8.dp))
 
             OutlinedTextField(
-                value = vm.people,
-                onValueChange = { vm.people = it },
+                value = vm.ui.people,
+                onValueChange = vm::onPeopleChange,
                 label = { Text("People", color = Color.White) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = vm.ui.peopleError != null,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White,
@@ -60,14 +64,16 @@ fun InputScreen(
 
             Button(
                 enabled = vm.isValid(),
-                onClick = { onCalculate(vm.calculate()) },
+                onClick = { vm.calculate()?.let(onCalculate) },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color.White,
                     contentColor = Color.Black,
                     disabledContainerColor = Color.DarkGray,
                     disabledContentColor = Color.Black
                 )
-            ) { Text("Calculate") }
+            ) {
+                Text("Calculate")
+            }
         }
     }
 }

@@ -2,46 +2,51 @@ package com.example.hw2.ui
 
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
-import java.util.UUID
-
-data class CalcResult(
-    val id: String,
-    val tip: Double,
-    val totalWithTip: Double,
-    val perPerson: Double
-)
+import com.example.hw2.domain.SplitCalculator
+import com.example.hw2.domain.SplitResult
 
 class SplitViewModel : ViewModel() {
 
-    var total by mutableStateOf("")
-    var people by mutableStateOf("")
+    var ui by mutableStateOf(InputUiState())
+        private set
 
-    private val _history = mutableStateListOf<CalcResult>()
-    val history: List<CalcResult> = _history
+    private val _history = mutableStateListOf<SplitResult>()
+    val history: List<SplitResult> = _history
 
-    fun isValid(): Boolean =
-        total.toDoubleOrNull()?.let { it > 0 } == true &&
-                people.toIntOrNull()?.let { it > 0 } == true
-
-    fun calculate(): String {
-        val t = total.toDouble()
-        val p = people.toInt()
-
-        val tip = t * 0.1
-        val sum = t + tip
-        val per = sum / p
-
-        val id = UUID.randomUUID().toString()
-        _history.add(0, CalcResult(id, tip, sum, per))
-        if (_history.size > 10) _history.removeAt(_history.lastIndex)
-
-        return id
+    fun onTotalChange(v: String) {
+        ui = ui.copy(total = v, totalError = null)
     }
 
-    fun getById(id: String) = history.first { it.id == id }
+    fun onPeopleChange(v: String) {
+        ui = ui.copy(people = v, peopleError = null)
+    }
+
+    fun isValid(): Boolean =
+        ui.total.toDoubleOrNull()?.let { it > 0 } == true &&
+                ui.people.toIntOrNull()?.let { it > 0 } == true
+
+    fun calculate(): String? {
+        val t = ui.total.toDoubleOrNull()
+        val p = ui.people.toIntOrNull()
+
+        val totalErr = if (t == null || t <= 0) "Enter total > 0" else null
+        val peopleErr = if (p == null || p <= 0) "Enter people > 0" else null
+
+        if (totalErr != null || peopleErr != null) {
+            ui = ui.copy(totalError = totalErr, peopleError = peopleErr)
+            return null
+        }
+
+        val r = SplitCalculator.calculate(total = t!!, people = p!!)
+        _history.add(0, r)
+        if (_history.size > 10) _history.removeAt(_history.lastIndex)
+        return r.id
+    }
+
+    fun getByIdOrNull(id: String): SplitResult? =
+        _history.firstOrNull { it.id == id }
 
     fun reset() {
-        total = ""
-        people = ""
+        ui = InputUiState()
     }
 }

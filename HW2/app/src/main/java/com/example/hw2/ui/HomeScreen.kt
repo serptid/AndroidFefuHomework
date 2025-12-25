@@ -15,7 +15,9 @@ fun HomeScreen(
     onHistory: () -> Unit
 ) {
     Box(
-        modifier = Modifier.fillMaxSize().background(Color.Black),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {

@@ -1,13 +1,14 @@
-package com.example.hw2
+package com.example.hw2.ui
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
-import androidx.navigation.compose.*
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.hw2.ui.*
 import com.example.hw2.ui.theme.HW2Theme
 
 class MainActivity : ComponentActivity() {
@@ -43,13 +44,16 @@ class MainActivity : ComponentActivity() {
 
                     composable(
                         route = "result/{id}",
-                        arguments = listOf(navArgument("id") { type = NavType.StringType })
+                        arguments = listOf(navArgument("id") {
+                            type = NavType.Companion.StringType
+                        })
                     ) { back ->
-                        val id = back.arguments!!.getString("id")!!
+                        val id = back.arguments?.getString("id")
 
                         ResultScreen(
                             vm = vm,
                             id = id,
+                            onBackToEdit = { nav.navigate("input") { launchSingleTop = true } },
                             onNew = {
                                 vm.reset()
                                 nav.navigate("home") {
