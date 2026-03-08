@@ -7,14 +7,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.hw3.data.Game
 import com.example.hw3.data.GamesRepository
-import com.example.hw3.data.GamesRepositoryImpl
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class GamesViewModel : ViewModel() {
-
-    private val repository: GamesRepository = GamesRepositoryImpl()
+@HiltViewModel
+class GamesViewModel @Inject constructor(
+    private val repository: GamesRepository
+) : ViewModel() {
 
     private var allGames: List<Game> = emptyList()
 
@@ -29,30 +32,49 @@ class GamesViewModel : ViewModel() {
 
     private var searchJob: Job? = null
 
-    private val favourites = mutableListOf<Game>()
-
     private var favouriteIds: Set<Int> by mutableStateOf(emptySet())
 
     var favouritesState: FavouritesState by mutableStateOf(UiState.Empty)
         private set
 
+    var gameDetailState: GameDetailState by mutableStateOf(UiState.Loading)
+        private set
+
+    private var lastDetailId: Int? = null
+
+    init {
+        observeFavourites()
+    }
+
+    private fun observeFavourites() {
+        viewModelScope.launch {
+            repository.getFavouriteGames().collectLatest { favourites ->
+                favouriteIds = favourites.map { it.id }.toSet()
+                favouritesState =
+                    if (favourites.isEmpty()) UiState.Empty
+                    else UiState.Success(favourites)
+            }
+        }
+    }
+
     fun isFavourite(id: Int): Boolean = favouriteIds.contains(id)
 
     fun toggleFavourite(game: Game) {
-        if (favourites.any { it.id == game.id }) {
-            favourites.removeAll { it.id == game.id }
-        } else {
-            favourites.add(game)
+        viewModelScope.launch {
+            if (repository.isFavourite(game.id)) {
+                repository.removeFavourite(game.id)
+            } else {
+                repository.addFavourite(game)
+            }
         }
-
-        favouriteIds = favourites.map { it.id }.toSet()
-
-        favouritesState =
-            if (favourites.isEmpty()) UiState.Empty
-            else UiState.Success(favourites.toList())
     }
 
     fun loadGames() {
+        if (allGames.isNotEmpty()) {
+            applyFilterNow()
+            return
+        }
+
         gamesState = UiState.Loading
         viewModelScope.launch {
             try {
@@ -71,8 +93,8 @@ class GamesViewModel : ViewModel() {
                 allGames = repository.getGames()
                 applyFilterNow()
             } catch (e: Exception) {
-                gameDetailState = UiState.Error(friendlyError(e))
-        } finally {
+                gamesState = UiState.Error(friendlyError(e))
+            } finally {
                 isRefreshing = false
             }
         }
@@ -92,13 +114,11 @@ class GamesViewModel : ViewModel() {
         val filtered = if (q.isEmpty()) allGames else allGames.filter {
             it.title.lowercase().contains(q)
         }
-        gamesState = if (filtered.isEmpty()) UiState.Empty else UiState.Success(filtered)
+
+        gamesState =
+            if (filtered.isEmpty()) UiState.Empty
+            else UiState.Success(filtered)
     }
-
-    var gameDetailState: GameDetailState by mutableStateOf(UiState.Loading)
-        private set
-
-    private var lastDetailId: Int? = null
 
     fun loadGameDetail(id: Int) {
         lastDetailId = id
@@ -112,20 +132,20 @@ class GamesViewModel : ViewModel() {
             }
         }
     }
+
+    fun retryDetail() {
+        val id = lastDetailId ?: return
+        loadGameDetail(id)
+    }
+
     private fun friendlyError(e: Exception): String =
         when (e) {
             is java.net.SocketTimeoutException ->
-                "Превышено время ожидания. Попробуйте другую сеть (Wi-Fi/мобильную), другого провайдера или Включите/Выключите VPN"
+                "Превышено время ожидания. Попробуйте другую сеть или VPN."
             is java.net.UnknownHostException ->
                 "Нет подключения к интернету."
             is java.io.IOException ->
                 "Ошибка сети."
             else -> e.message ?: "Неизвестная ошибка"
         }
-
-
-    fun retryDetail() {
-        val id = lastDetailId ?: return
-        loadGameDetail(id)
-    }
 }
