@@ -19,6 +19,13 @@ Base URL: `https://www.freetogame.com/api`
 * Обработка состояний загрузки и ошибок
 * Внедрение зависимостей через Hilt
 
+# Скриншоты
+![photo_4_2026-03-08_15-56-59](https://github.com/user-attachments/assets/45d860a1-9401-44a4-863b-ea39d7f92293)
+![photo_3_2026-03-08_15-56-59](https://github.com/user-attachments/assets/4e784565-0d97-43bb-8dab-7f07b35ae4dc)
+![photo_2_2026-03-08_15-56-59](https://github.com/user-attachments/assets/0694c902-8b58-4738-8fe0-58628729b90f)
+![photo_1_2026-03-08_15-56-59](https://github.com/user-attachments/assets/5c268692-3c33-4367-8bbb-6eb3897550d3)
+
+
 
 # Что было добавлено в четвёртом домашнем задании
 
