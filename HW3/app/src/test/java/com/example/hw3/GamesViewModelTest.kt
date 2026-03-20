@@ -3,7 +3,8 @@ package com.example.hw3
 import app.cash.turbine.test
 import com.example.hw3.data.Game
 import com.example.hw3.data.GameDetail
-import com.example.hw3.ui.GamesViewModel
+import com.example.hw3.ui.GameDetailViewModel
+import com.example.hw3.ui.GamesListViewModel
 import com.example.hw3.ui.UiState
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -19,7 +20,8 @@ class GamesViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private lateinit var repository: FakeGamesRepository
-    private lateinit var viewModel: GamesViewModel
+    private lateinit var gamesListVM: GamesListViewModel
+    private lateinit var gameDetailVM: GameDetailViewModel
 
     private val testGame = Game(
         id = 1,
@@ -47,57 +49,58 @@ class GamesViewModelTest {
     @Before
     fun setup() {
         repository = FakeGamesRepository()
-        viewModel = GamesViewModel(repository)
+        gamesListVM = GamesListViewModel(repository)
+        gameDetailVM = GameDetailViewModel(repository)
     }
 
     @Test
     fun initialGamesState_isLoading() {
-        assertEquals(UiState.Loading, viewModel.gamesState)
+        assertEquals(UiState.Loading, gamesListVM.gamesState)
     }
 
     @Test
     fun loadGames_success_setsSuccessState() = runTest(mainDispatcherRule.testDispatcher) {
         repository.gamesResult = Result.success(listOf(testGame))
 
-        viewModel.loadGames()
+        gamesListVM.loadGames()
         advanceUntilIdle()
 
-        assertEquals(UiState.Success(listOf(testGame)), viewModel.gamesState)
+        assertEquals(UiState.Success(listOf(testGame)), gamesListVM.gamesState)
     }
 
     @Test
     fun loadGames_error_setsErrorState() = runTest(mainDispatcherRule.testDispatcher) {
         repository.gamesResult = Result.failure(java.io.IOException())
 
-        viewModel.loadGames()
+        gamesListVM.loadGames()
         advanceUntilIdle()
 
-        assertTrue(viewModel.gamesState is UiState.Error)
-        assertEquals("Ошибка сети.", (viewModel.gamesState as UiState.Error).message)
+        assertTrue(gamesListVM.gamesState is UiState.Error)
+        assertEquals("Ошибка сети.", (gamesListVM.gamesState as UiState.Error).message)
     }
 
     @Test
     fun onQueryChange_noMatch_setsEmptyState() = runTest(mainDispatcherRule.testDispatcher) {
         repository.gamesResult = Result.success(listOf(testGame))
-        viewModel.loadGames()
+        gamesListVM.loadGames()
         advanceUntilIdle()
 
-        viewModel.onQueryChange("xyznonexistent_query")
+        gamesListVM.onQueryChange("xyznonexistent_query")
         advanceTimeBy(400)
 
-        assertTrue(viewModel.gamesState is UiState.Empty)
-        assertFalse(viewModel.gamesState is UiState.Success)
+        assertTrue(gamesListVM.gamesState is UiState.Empty)
+        assertFalse(gamesListVM.gamesState is UiState.Success)
     }
 
     @Test
     fun retryDetail_callsRepositoryAgain() = runTest(mainDispatcherRule.testDispatcher) {
         repository.gameDetailResult = Result.success(testGameDetail)
 
-        viewModel.loadGameDetail(testGame.id)
+        gameDetailVM.loadGameDetail(testGame.id)
         advanceUntilIdle()
         assertEquals(1, repository.getDetailCallCount)
 
-        viewModel.retryDetail()
+        gameDetailVM.retryDetail()
         advanceUntilIdle()
         assertEquals(2, repository.getDetailCallCount)
     }
@@ -106,7 +109,7 @@ class GamesViewModelTest {
     fun toggleFavourite_whenAlreadyFavourite_removes() = runTest(mainDispatcherRule.testDispatcher) {
         repository.isFavouriteResult = true
 
-        viewModel.toggleFavourite(testGame)
+        gamesListVM.toggleFavourite(testGame)
         advanceUntilIdle()
 
         assertEquals(1, repository.removeFavouriteCallCount)

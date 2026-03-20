@@ -10,7 +10,13 @@ sealed class UiState<out T> {
     data class Success<T>(val data: T) : UiState<T>()
 }
 
-
 typealias GamesListState = UiState<List<Game>>
 typealias GameDetailState = UiState<GameDetail>
 typealias FavouritesState = UiState<List<Game>>
+
+fun friendlyError(e: Exception): String = when (e) {
+    is java.net.SocketTimeoutException -> "Превышено время ожидания. Попробуйте другую сеть или VPN."
+    is java.net.UnknownHostException -> "Нет подключения к интернету."
+    is java.io.IOException -> "Ошибка сети."
+    else -> e.message ?: "Неизвестная ошибка"
+}

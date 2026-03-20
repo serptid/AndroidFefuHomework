@@ -10,12 +10,11 @@ import com.example.hw3.data.GamesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class GamesViewModel @Inject constructor(
+class GamesListViewModel @Inject constructor(
     private val repository: GamesRepository
 ) : ViewModel() {
 
@@ -31,16 +30,7 @@ class GamesViewModel @Inject constructor(
         private set
 
     private var searchJob: Job? = null
-
     private var favouriteIds: Set<Int> by mutableStateOf(emptySet())
-
-    var favouritesState: FavouritesState by mutableStateOf(UiState.Empty)
-        private set
-
-    var gameDetailState: GameDetailState by mutableStateOf(UiState.Loading)
-        private set
-
-    private var lastDetailId: Int? = null
 
     init {
         observeFavourites()
@@ -48,11 +38,8 @@ class GamesViewModel @Inject constructor(
 
     private fun observeFavourites() {
         viewModelScope.launch {
-            repository.getFavouriteGames().collectLatest { favourites ->
+            repository.getFavouriteGames().collect { favourites ->
                 favouriteIds = favourites.map { it.id }.toSet()
-                favouritesState =
-                    if (favourites.isEmpty()) UiState.Empty
-                    else UiState.Success(favourites)
             }
         }
     }
@@ -74,7 +61,6 @@ class GamesViewModel @Inject constructor(
             applyFilterNow()
             return
         }
-
         gamesState = UiState.Loading
         viewModelScope.launch {
             try {
@@ -114,38 +100,6 @@ class GamesViewModel @Inject constructor(
         val filtered = if (q.isEmpty()) allGames else allGames.filter {
             it.title.lowercase().contains(q)
         }
-
-        gamesState =
-            if (filtered.isEmpty()) UiState.Empty
-            else UiState.Success(filtered)
+        gamesState = if (filtered.isEmpty()) UiState.Empty else UiState.Success(filtered)
     }
-
-    fun loadGameDetail(id: Int) {
-        lastDetailId = id
-        gameDetailState = UiState.Loading
-        viewModelScope.launch {
-            try {
-                val game = repository.getGameDetail(id)
-                gameDetailState = UiState.Success(game)
-            } catch (e: Exception) {
-                gameDetailState = UiState.Error(friendlyError(e))
-            }
-        }
-    }
-
-    fun retryDetail() {
-        val id = lastDetailId ?: return
-        loadGameDetail(id)
-    }
-
-    private fun friendlyError(e: Exception): String =
-        when (e) {
-            is java.net.SocketTimeoutException ->
-                "Превышено время ожидания. Попробуйте другую сеть или VPN."
-            is java.net.UnknownHostException ->
-                "Нет подключения к интернету."
-            is java.io.IOException ->
-                "Ошибка сети."
-            else -> e.message ?: "Неизвестная ошибка"
-        }
 }
