@@ -15,7 +15,7 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "com.example.hw3.HiltTestRunner"
     }
 
     buildTypes {
@@ -48,6 +48,8 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/LICENSE.md"
+            excludes += "/META-INF/LICENSE-notice.md"
         }
     }
 }
@@ -83,10 +85,17 @@ dependencies {
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+    testImplementation("app.cash.turbine:turbine:1.1.0")
+
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     androidTestImplementation(platform("androidx.compose:compose-bom:2024.06.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("com.google.dagger:hilt-android-testing:2.52")
+    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+    androidTestImplementation("app.cash.turbine:turbine:1.1.0")
+    kaptAndroidTest("com.google.dagger:hilt-compiler:2.52")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
