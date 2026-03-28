@@ -6,6 +6,7 @@ import com.example.hw3.data.GameDetail
 import com.example.hw3.ui.GameDetailViewModel
 import com.example.hw3.ui.GamesListViewModel
 import com.example.hw3.ui.UiState
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -14,6 +15,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class GamesViewModelTest {
 
     @get:Rule

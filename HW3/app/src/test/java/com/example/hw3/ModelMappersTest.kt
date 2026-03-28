@@ -1,108 +1,98 @@
 package com.example.hw3
 
-import com.example.hw3.data.GameDetailDto
+import app.cash.turbine.test
+import com.example.hw3.data.Game
 import com.example.hw3.data.GameDto
-import com.example.hw3.data.MinSystemRequirementsDto
-import com.example.hw3.data.ScreenshotDto
-import com.example.hw3.data.toGame
-import com.example.hw3.data.toGameDetail
-import com.example.hw3.data.local.FavouriteGameEntity
-import com.example.hw3.data.local.toGame
+import com.example.hw3.data.GamesRepositoryImpl
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
+import org.junit.Before
 import org.junit.Test
+import java.io.IOException
 
-class ModelMappersTest {
+class GamesRepositoryUnitTest {
 
-    @Test
-    fun gameDtoToGame_mapsAllFieldsCorrectly() {
-        val dto = GameDto(
-            id = 42,
-            title = "Warframe",
-            thumbnail = "https://example.com/warframe.jpg",
-            shortDescription = "A free-to-play action game",
-            genre = "Action",
-            platform = "PC",
-            releaseDate = "2013-03-25"
-        )
+    private lateinit var fakeApi: FakeFreeToGameApi
+    private lateinit var fakeDao: FakeFavouriteGamesDao
+    private lateinit var repository: GamesRepositoryImpl
 
-        val game = dto.toGame()
-
-        assertEquals(dto.id, game.id)
-        assertEquals(dto.title, game.title)
-        assertEquals(dto.thumbnail, game.thumbnail)
-        assertEquals(dto.shortDescription, game.shortDescription)
-        assertEquals(dto.genre, game.genre)
-        assertEquals(dto.platform, game.platform)
-        assertEquals(dto.releaseDate, game.releaseDate)
+    @Before
+    fun setUp() {
+        fakeApi = FakeFreeToGameApi()
+        fakeDao = FakeFavouriteGamesDao()
+        repository = GamesRepositoryImpl(fakeApi, fakeDao)
     }
 
+    // Репозиторий корректно маппит DTO из API в доменные модели
     @Test
-    fun gameDetailDtoToGameDetail_mapsAllFieldsCorrectly() {
-        val screenshotDto = ScreenshotDto(id = 1, image = "https://example.com/screen.jpg")
-        val minReqDto = MinSystemRequirementsDto(
-            os = "Windows 7",
-            processor = "Intel Core i5",
-            memory = "4 GB RAM",
-            graphics = "GeForce GTX 780",
-            storage = "15 GB"
-        )
-        val dto = GameDetailDto(
-            id = 100,
-            title = "Path of Exile",
-            thumbnail = "https://example.com/poe.jpg",
-            description = "An isometric action RPG",
-            genre = "RPG",
-            platform = "PC",
-            releaseDate = "2013-10-23",
-            publisher = "Grinding Gear Games",
-            developer = "Grinding Gear Games",
-            gameUrl = "https://www.pathofexile.com",
-            screenshots = listOf(screenshotDto),
-            minSystemRequirements = minReqDto
+    fun getGames_returnsMappedDomainModels() = runTest {
+        fakeApi.gamesResult = listOf(
+            GameDto(
+                id = 1,
+                title = "Warframe",
+                thumbnail = "https://example.com/wf.jpg",
+                shortDescription = "Free-to-play action game",
+                genre = "Action",
+                platform = "PC",
+                releaseDate = "2013-03-25"
+            )
         )
 
-        val detail = dto.toGameDetail()
+        val games = repository.getGames()
 
-        assertEquals(dto.id, detail.id)
-        assertEquals(dto.title, detail.title)
-        assertEquals(dto.thumbnail, detail.thumbnail)
-        assertEquals(dto.description, detail.description)
-        assertEquals(dto.genre, detail.genre)
-        assertEquals(dto.platform, detail.platform)
-        assertEquals(dto.releaseDate, detail.releaseDate)
-        assertEquals(dto.publisher, detail.publisher)
-        assertEquals(dto.developer, detail.developer)
-        assertEquals(dto.gameUrl, detail.gameUrl)
-        assertEquals(1, detail.screenshots.size)
-        assertEquals(screenshotDto.id, detail.screenshots[0].id)
-        assertEquals(screenshotDto.image, detail.screenshots[0].image)
-        assertEquals(minReqDto.os, detail.minSystemRequirements?.os)
-        assertEquals(minReqDto.processor, detail.minSystemRequirements?.processor)
-        assertEquals(minReqDto.memory, detail.minSystemRequirements?.memory)
-        assertEquals(minReqDto.graphics, detail.minSystemRequirements?.graphics)
-        assertEquals(minReqDto.storage, detail.minSystemRequirements?.storage)
+        assertEquals(1, games.size)
+        assertEquals(1, games[0].id)
+        assertEquals("Warframe", games[0].title)
+        assertEquals("Action", games[0].genre)
+        assertEquals("PC", games[0].platform)
+        assertEquals("2013-03-25", games[0].releaseDate)
     }
 
+    // Исключение из API пробрасывается наружу без поглощения
     @Test
-    fun toGame_fromEntity_mapsAllFields() {
-        val entity = FavouriteGameEntity(
-            id = 7,
-            title = "Apex Legends",
-            thumbnail = "https://example.com/apex.jpg",
-            shortDescription = "A battle royale game",
-            genre = "Battle Royale",
-            platform = "PC",
-            releaseDate = "2019-02-04"
+    fun getGames_whenApiThrows_propagatesException() = runTest {
+        fakeApi.throwOnGetGames = IOException("Network error")
+
+        try {
+            repository.getGames()
+            fail("Expected IOException to be thrown")
+        } catch (e: IOException) {
+            assertEquals("Network error", e.message)
+        }
+    }
+
+    // После addFavourite — isFavourite возвращает true
+    @Test
+    fun addFavourite_thenIsFavourite_returnsTrue() = runTest {
+        val game = Game(
+            id = 5, title = "Apex Legends", thumbnail = "t",
+            shortDescription = "d", genre = "Battle Royale",
+            platform = "PC", releaseDate = "2019-02-04"
         )
 
-        val game = entity.toGame()
+        repository.addFavourite(game)
 
-        assertEquals(entity.id, game.id)
-        assertEquals(entity.title, game.title)
-        assertEquals(entity.thumbnail, game.thumbnail)
-        assertEquals(entity.shortDescription, game.shortDescription)
-        assertEquals(entity.genre, game.genre)
-        assertEquals(entity.platform, game.platform)
-        assertEquals(entity.releaseDate, game.releaseDate)
+        assertTrue(repository.isFavourite(5))
+    }
+
+    // Повторный addFavourite с тем же ID не создаёт дубль (нетривиальный)
+    @Test
+    fun addFavourite_twice_doesNotCreateDuplicate() = runTest {
+        val game = Game(
+            id = 5, title = "Apex Legends", thumbnail = "t",
+            shortDescription = "d", genre = "Battle Royale",
+            platform = "PC", releaseDate = "2019-02-04"
+        )
+
+        repository.addFavourite(game)
+        repository.addFavourite(game)
+
+        repository.getFavouriteGames().test {
+            val list = awaitItem()
+            assertEquals("Expected exactly 1 game, got ${list.size}", 1, list.size)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }

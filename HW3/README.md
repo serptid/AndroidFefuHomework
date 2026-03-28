@@ -1,186 +1,149 @@
-# HW5 — Тестирование Android-приложения «Каталог бесплатных игр»
+# HW6 — Flow / Android-приложение «Каталог бесплатных игр»
 
-## Описание проекта
+Стек: Kotlin, Jetpack Compose, Retrofit, Room, Hilt, Coroutines, Flow, Navigation Compose.
 
-Android-приложение на Kotlin + Jetpack Compose, которое загружает список бесплатных игр через API [FreeToGame](https://www.freetogame.com/api), позволяет смотреть детали игры и сохранять игры в избранное (Room).
+## HW6 — Реактивный Flow в GamesListViewModel
 
-**Стек:** Retrofit + OkHttp, Room, Hilt, Coroutines, Flow, Jetpack Compose, Navigation Compose.
+Изменён один файл: `GamesListViewModel.kt`.
 
----
+Было: императивный подход — `var allGames`, ручная отмена через `Job`, `delay(350)`, `observeFavourites()` отдельно.
 
-## Что добавлено в HW5
+Стало: реактивный пайплайн из трёх независимых источников, объединённых через `combine`.
 
-### Новые зависимости (`app/build.gradle.kts`)
+### Источники
+
+| # | Тип | Откуда |
+|---|---|---|
+| 1 | `MutableStateFlow<String>` | поисковый запрос пользователя |
+| 2 | `MutableSharedFlow<Unit>` + `flatMapLatest` | триггеры load/refresh → данные из API |
+| 3 | `repository.getFavouriteGames()` + `map` | ID избранных игр из Room |
+
+### Операторы
+
+`flatMapLatest` — новый refresh отменяет незавершённый предыдущий запрос.
+`debounce(350)` + `distinctUntilChanged` — поиск не срабатывает на каждый символ.
+`map` — список `Game` из Room преобразуется в `Set<Int>` ID.
+`combine` — три источника сводятся в одно состояние экрана.
+
+### Поведение
+
+Изменение любого из трёх источников пересчитывает `gamesState` без дополнительных вызовов:
+- пользователь добавляет игру в избранное — звёздочки обновляются сразу через Room Flow, без перезагрузки списка
+- пользователь вводит запрос — debounce 350 мс, затем фильтрация текущего списка
+- pull-to-refresh — flatMapLatest отменяет незавершённый запрос и запускает новый
+
+`SharedFlow(replay=1)` для триггера нужен, чтобы `loadGames()` корректно работал в тестах с `StandardTestDispatcher`, где `stateIn`-корутина стартует позже самого вызова `tryEmit`.
+
+Публичный API `GamesListViewModel` не изменился. `AppNavGraph`, экраны и тесты HW5 не требовали правок.
+
+## HW5 — Тесты
+
+### Зависимости (app/build.gradle.kts)
 
 ```
 testImplementation: kotlinx-coroutines-test:1.8.1
 testImplementation: app.cash.turbine:turbine:1.1.0
-
 androidTestImplementation: hilt-android-testing:2.52
 androidTestImplementation: kotlinx-coroutines-test:1.8.1
 androidTestImplementation: app.cash.turbine:turbine:1.1.0
 kaptAndroidTest: hilt-compiler:2.52
+testInstrumentationRunner: com.example.hw3.HiltTestRunner
 ```
 
-Также изменён `testInstrumentationRunner` на `com.example.hw3.HiltTestRunner`.
-
----
-
-### Добавленные файлы
+### Файлы
 
 ```
 app/src/test/java/com/example/hw3/
-├── MainDispatcherRule.kt
-├── FakeGamesRepository.kt
-├── GamesViewModelTest.kt        (8 тестов)
-└── ModelMappersTest.kt          (3 теста)
+    MainDispatcherRule.kt
+    FakeGamesRepository.kt
+    FakeFreeToGameApi.kt
+    FakeFavouriteGamesDao.kt
+    GamesViewModelTest.kt          (8 тестов)
+    ModelMappersTest.kt            (4 теста, класс GamesRepositoryUnitTest)
 
 app/src/androidTest/java/com/example/hw3/
-├── HiltTestRunner.kt
-├── FavouritesDaoIntegrationTest.kt   (3 теста)
-└── GamesListScreenTest.kt            (3 теста)
+    HiltTestRunner.kt
+    FakeFreeToGameApi.kt
+    FavouritesDaoIntegrationTest.kt    (3 теста, класс GamesRepositoryIntegrationTest)
+    GamesListScreenTest.kt             (3 теста)
 ```
-
----
-
-## Описание тестов
 
 ### Unit-тесты
 
-#### `MainDispatcherRule.kt`
-JUnit Rule, который заменяет `Dispatchers.Main` на `StandardTestDispatcher` перед каждым тестом и восстанавливает после. Это позволяет тестировать ViewModel без Android-окружения — корутины `viewModelScope` управляются вручную через `advanceUntilIdle()`.
+`MainDispatcherRule.kt` — JUnit Rule, заменяет `Dispatchers.Main` на `StandardTestDispatcher`. Корутины `viewModelScope` управляются через `advanceUntilIdle()`.
 
-#### `FakeGamesRepository.kt`
-Ручная реализация интерфейса `GamesRepository` для изоляции тестов от сети и базы данных:
-- `gamesResult` / `gameDetailResult` — управляют успехом или ошибкой запросов
-- `favouritesFlow` — `MutableStateFlow`, имитирует поток из Room
-- `getGamesCallCount`, `getDetailCallCount`, `addFavouriteCallCount`, `removeFavouriteCallCount` — счётчики вызовов для проверки поведения
+`FakeGamesRepository.kt` — ручная реализация `GamesRepository`. Содержит `gamesResult`, `gameDetailResult`, `favouritesFlow: MutableStateFlow`, счётчики вызовов.
 
-#### `GamesViewModelTest.kt` — 8 тестов
+`GamesViewModelTest.kt` — 8 тестов:
 
 | Тест | Что проверяет |
 |---|---|
-| `initialGamesState_isLoading` | Начальное состояние ViewModel = `Loading` |
-| `loadGames_success_setsSuccessState` | Успешный ответ API → состояние `Success` со списком игр |
-| `loadGames_error_setsErrorState` | `IOException` → состояние `Error` с русским текстом «Ошибка сети.» |
-| `onQueryChange_noMatch_setsEmptyState` ⚡ | Поиск без совпадений → `Empty`, а не `Success(emptyList())` |
-| `retryDetail_callsRepositoryAgain` ⚡ | `retryDetail()` делает ещё один запрос: счётчик `getDetailCallCount` = 2 |
-| `toggleFavourite_whenAlreadyFavourite_removes` | Если игра уже в избранном — вызывается `removeFavourite`, а не `addFavourite` |
-| `favouritesFlow_sequence_emptyThenGame` 🌊 | **Turbine**: полная последовательность эмиссий — сначала пустой список, потом список с игрой |
-| `favouritesFlow_noExtraEmissions_onSameState` 🌊⚡ | **Turbine**: повторный `emit` одного и того же списка не вызывает лишней эмиссии (StateFlow конфлейтит одинаковые значения) |
+| `initialGamesState_isLoading` | начальное состояние — Loading |
+| `loadGames_success_setsSuccessState` | успешный ответ API — Success |
+| `loadGames_error_setsErrorState` | IOException — Error с текстом «Ошибка сети.» |
+| `onQueryChange_noMatch_setsEmptyState` | пустой результат поиска — Empty, не Success(emptyList()) |
+| `retryDetail_callsRepositoryAgain` | retryDetail() делает второй запрос: счётчик = 2 |
+| `toggleFavourite_whenAlreadyFavourite_removes` | повторный toggle вызывает removeFavourite |
+| `favouritesFlow_sequence_emptyThenGame` | Turbine: полная последовательность эмиссий |
+| `favouritesFlow_noExtraEmissions_onSameState` | Turbine: повторный emit того же значения не вызывает лишней эмиссии |
 
-⚡ — нетривиальный тест &nbsp; 🌊 — Flow-тест с Turbine
-
-#### `ModelMappersTest.kt` — 3 теста
+`ModelMappersTest.kt` (класс `GamesRepositoryUnitTest`) — 4 теста бизнес-логики репозитория через `GamesRepositoryImpl` с `FakeFreeToGameApi` и `FakeFavouriteGamesDao`:
 
 | Тест | Что проверяет |
 |---|---|
-| `gameDtoToGame_mapsAllFieldsCorrectly` | Все поля `GameDto` корректно маппятся в `Game` |
-| `gameDetailDtoToGameDetail_mapsAllFieldsCorrectly` | `GameDetailDto` с вложенными `ScreenshotDto` и `MinSystemRequirementsDto` маппятся правильно |
-| `toGame_fromEntity_mapsAllFields` | `FavouriteGameEntity` из Room корректно маппится в `Game` |
+| `getGames_returnsMappedDomainModels` | репозиторий маппит GameDto в Game |
+| `getGames_whenApiThrows_propagatesException` | исключение из API пробрасывается наружу |
+| `addFavourite_thenIsFavourite_returnsTrue` | isFavourite() = true после addFavourite() |
+| `addFavourite_twice_doesNotCreateDuplicate` | повторный addFavourite не создаёт дубль |
 
----
+### Интеграционные тесты
 
-### Инструментальные тесты
-
-#### `HiltTestRunner.kt`
-Кастомный `AndroidJUnitRunner`, который запускает `HiltTestApplication` вместо обычного `Application`. Нужен для работы Hilt в инструментальных тестах.
-
-#### `FavouritesDaoIntegrationTest.kt` — 3 теста (Room, in-memory БД)
+`FavouritesDaoIntegrationTest.kt` (класс `GamesRepositoryIntegrationTest`) — интеграция `GamesRepositoryImpl` с реальной in-memory Room БД и `FakeFreeToGameApi`. Тестирует слой, через который приложение реально работает с данными, а не DAO напрямую.
 
 | Тест | Что проверяет |
 |---|---|
-| `insert_thenObserveAll_returnsCorrectData` | Запись игры → чтение через Flow → данные совпадают |
-| `doubleInsert_noDuplicate` ⚡ | Вставка одной игры дважды с тем же ID (стратегия `REPLACE`) → в БД ровно 1 запись |
-| `deleteById_removedFromFlow` 🌊 | **Turbine**: последовательность эмиссий — пустой список → список с игрой → снова пустой после удаления |
+| `addFavourite_getFavouriteGames_returnsCorrectData` | данные читаются корректно через репозиторий |
+| `addFavourite_twice_noDuplicateInDatabase` | повторный addFavourite не создаёт дубль в реальной БД |
+| `addThenRemoveFavourite_flowEmitsCorrectSequence` | Turbine: пустой список — добавление — удаление |
 
-#### `GamesListScreenTest.kt` — 3 теста (Compose UI)
+`GamesListScreenTest.kt` — 3 Compose UI теста через `setContent` без Hilt:
 
 | Тест | Что проверяет |
 |---|---|
-| `loadingState_showsProgressIndicator` | При `UiState.Loading` на экране есть `CircularProgressIndicator` |
-| `successState_showsGameTitles` | При `UiState.Success` заголовок игры отображается в списке |
-| `errorState_retryButton_invokesCallback` ⚡ | Нажатие кнопки «Retry» при `UiState.Error` вызывает переданный коллбэк |
+| `loadingState_showsProgressIndicator` | Loading — виден CircularProgressIndicator |
+| `successState_showsGameTitles` | Success — заголовок игры отображается в списке |
+| `errorState_retryButton_invokesCallback` | кнопка Retry при Error вызывает коллбэк |
 
----
+### Итог покрытия
+
+| Требование | Количество |
+|---|---|
+| Unit-тесты | 12 (8 + 4) |
+| Интеграционные тесты | 6 (3 + 3) |
+| Нетривиальные тесты | 5 |
+| Flow-тесты с Turbine | 4 |
+
+### Исправленные замечания
+
+Преподаватель указал на два недостатка в первой версии HW5:
+
+1. `FavouritesDaoIntegrationTest` тестировал DAO напрямую, а не репозиторий. Исправлено: тест переписан как `GamesRepositoryIntegrationTest` — используется `GamesRepositoryImpl` с реальной Room БД. Это слой, через который приложение реально работает с данными.
+
+2. `ModelMappersTest` тестировал тривиальный маппинг полей. Исправлено: тест заменён на `GamesRepositoryUnitTest` — проверяется поведение репозитория: маппинг через реальный вызов `getGames()`, пробрасывание исключений, корректность `isFavourite` и защита от дублей.
 
 ## Как запустить
 
-### Unit-тесты (без устройства)
-
-> ⚠️ **Windows + кириллица в имени пользователя**: если ваш путь к домашней папке содержит кириллицу (например `C:\Users\Иван`), перед запуском установите переменную окружения:
-> ```powershell
-> $env:GRADLE_USER_HOME = "C:\gradle-home"
-> ```
-
+Unit-тесты:
 ```bash
 ./gradlew test
 ```
 
-Запустить один класс:
-```bash
-./gradlew :app:testDebugUnitTest --tests "com.example.hw3.GamesViewModelTest"
-```
-
-Отчёт: `app/build/reports/tests/testDebugUnitTest/index.html`
-
----
-
-### Инструментальные тесты (нужен эмулятор или устройство)
-
+Инструментальные тесты (нужен эмулятор или устройство):
 ```bash
 ./gradlew connectedAndroidTest
 ```
 
-Отчёт: `app/build/reports/androidTests/connected/index.html`
-
-Для запуска через Android Studio: правой кнопкой по папке `androidTest` → **Run Tests**.
-
----
-
----
-
-## Дополнительные улучшения по замечаниям
-
-### Удалён мёртвый код
-
-- `ui/components/CommonViews.kt` — содержал `LoadingView`, `ErrorView`, `EmptyView`, которые нигде не вызывались
-- `ui/components/GameCard.kt` — компонент карточки, не используемый ни одним экраном
-
-### Декомпозиция GamesViewModel
-
-`GamesViewModel` тащил на себе сразу все состояния приложения. Разбит на три отдельных класса по принципу одной ответственности:
-
-| Класс | Отвечает за |
-|---|---|
-| `GamesListViewModel` | список игр, поиск, pull-to-refresh, набор избранных ID для звёздочек |
-| `GameDetailViewModel` | загрузка деталей игры, retry |
-| `FavouritesViewModel` | список избранного, удаление из избранного |
-
-Каждый экран получает свой ViewModel через `hiltViewModel()` прямо в `AppNavGraph`. `MainActivity` больше не знает ни про какие конкретные VM.
-
-### collectLatest → collect
-
-В `observeFavourites()` обоих новых VM использовался `collectLatest`. Внутри лямбды нет тяжёлой отменяемой работы — только присваивание состояния, поэтому заменён на обычный `collect`.
-
-### Дополнен FavouritesScreen
-
-Раньше состояния `Loading` и `Error` обрабатывались через `else -> {}` — экран просто ничего не показывал. Теперь:
-- `Loading` → `CircularProgressIndicator`
-- `Error` → текст ошибки
-
-### Вынесен friendlyError
-
-Функция преобразования исключений в читаемый текст перенесена из приватного метода VM в пакетную функцию в `UiState.kt`, доступную всем VM без дублирования.
-
----
-
-## Итог покрытия
-
-| Требование | Количество |
-|---|---|
-| Unit-тесты | 11 (8 + 3) |
-| Интеграционные тесты | 6 (3 + 3) |
-| Нетривиальные тесты | 5 |
-| Flow-тесты с Turbine (полная последовательность) | 2 |
-| Flow-тесты с Turbine (нетривиальное поведение) | 2 |
+Если путь к домашней папке содержит кириллицу, перед запуском установить переменную:
+```powershell
+$env:GRADLE_USER_HOME = "C:\gradle-home"
+```

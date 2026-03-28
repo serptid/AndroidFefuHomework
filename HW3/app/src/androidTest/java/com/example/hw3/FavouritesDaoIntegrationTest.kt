@@ -1,12 +1,13 @@
 package com.example.hw3
 
+import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.cash.turbine.test
+import com.example.hw3.data.Game
+import com.example.hw3.data.GamesRepositoryImpl
 import com.example.hw3.data.local.AppDatabase
-import com.example.hw3.data.local.FavouriteGameEntity
-import com.example.hw3.data.local.FavouriteGamesDao
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -14,13 +15,17 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
+/**
+ * Интеграционный тест: GamesRepositoryImpl + реальная in-memory Room БД.
+ * Проверяет контракт репозитория — слой, через который приложение реально работает с данными.
+ */
 @RunWith(AndroidJUnit4::class)
-class FavouritesDaoIntegrationTest {
+class GamesRepositoryIntegrationTest {
 
     private lateinit var database: AppDatabase
-    private lateinit var dao: FavouriteGamesDao
+    private lateinit var repository: GamesRepositoryImpl
 
-    private val testEntity = FavouriteGameEntity(
+    private val testGame = Game(
         id = 1,
         title = "Test Game",
         thumbnail = "https://example.com/thumb.jpg",
@@ -32,11 +37,11 @@ class FavouritesDaoIntegrationTest {
 
     @Before
     fun setup() {
-        database = Room.inMemoryDatabaseBuilder(
-            ApplicationProvider.getApplicationContext(),
-            AppDatabase::class.java
-        ).allowMainThreadQueries().build()
-        dao = database.favouriteGamesDao()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        database = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        repository = GamesRepositoryImpl(FakeFreeToGameApi(), database.favouriteGamesDao())
     }
 
     @After
@@ -44,42 +49,45 @@ class FavouritesDaoIntegrationTest {
         database.close()
     }
 
+    // addFavourite → getFavouriteGames возвращает корректные данные через репозиторий
     @Test
-    fun insert_thenObserveAll_returnsCorrectData() = runTest {
-        dao.insert(testEntity)
+    fun addFavourite_getFavouriteGames_returnsCorrectData() = runTest {
+        repository.addFavourite(testGame)
 
-        dao.observeAll().test {
-            val list = awaitItem()
-            assertEquals(1, list.size)
-            assertEquals(testEntity.id, list[0].id)
-            assertEquals(testEntity.title, list[0].title)
-            assertEquals(testEntity.genre, list[0].genre)
+        repository.getFavouriteGames().test {
+            val games = awaitItem()
+            assertEquals(1, games.size)
+            assertEquals(testGame.id, games[0].id)
+            assertEquals(testGame.title, games[0].title)
+            assertEquals(testGame.genre, games[0].genre)
             cancelAndIgnoreRemainingEvents()
         }
     }
 
+    // Повторный addFavourite не создаёт дубль в реальной БД (нетривиальный)
     @Test
-    fun doubleInsert_noDuplicate() = runTest {
-        dao.insert(testEntity)
-        dao.insert(testEntity)
+    fun addFavourite_twice_noDuplicateInDatabase() = runTest {
+        repository.addFavourite(testGame)
+        repository.addFavourite(testGame)
 
-        dao.observeAll().test {
-            val list = awaitItem()
-            assertEquals(1, list.size)
+        repository.getFavouriteGames().test {
+            val games = awaitItem()
+            assertEquals(1, games.size)
             cancelAndIgnoreRemainingEvents()
         }
     }
 
+    // Turbine: полная последовательность эмиссий через репозиторий (нетривиальный Flow-тест)
     @Test
-    fun deleteById_removedFromFlow() = runTest {
-        dao.observeAll().test {
-            assertEquals(emptyList<FavouriteGameEntity>(), awaitItem())
+    fun addThenRemoveFavourite_flowEmitsCorrectSequence() = runTest {
+        repository.getFavouriteGames().test {
+            assertEquals(emptyList<Game>(), awaitItem())
 
-            dao.insert(testEntity)
+            repository.addFavourite(testGame)
             assertEquals(1, awaitItem().size)
 
-            dao.deleteById(testEntity.id)
-            assertEquals(emptyList<FavouriteGameEntity>(), awaitItem())
+            repository.removeFavourite(testGame.id)
+            assertEquals(emptyList<Game>(), awaitItem())
 
             cancelAndIgnoreRemainingEvents()
         }
