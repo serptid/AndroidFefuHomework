@@ -1,3 +1,6 @@
+# ФИО: Прокопенко Сергей Игоревич
+# Группа: Б9123-09.03.01цд
+
 # HW6 — Flow / Android-приложение «Каталог бесплатных игр»
 
 Стек: Kotlin, Jetpack Compose, Retrofit, Room, Hilt, Coroutines, Flow, Navigation Compose.
@@ -33,8 +36,6 @@
 - pull-to-refresh — flatMapLatest отменяет незавершённый запрос и запускает новый
 
 `SharedFlow(replay=1)` для триггера нужен, чтобы `loadGames()` корректно работал в тестах с `StandardTestDispatcher`, где `stateIn`-корутина стартует позже самого вызова `tryEmit`.
-
-Публичный API `GamesListViewModel` не изменился. `AppNavGraph`, экраны и тесты HW5 не требовали правок.
 
 ## HW5 — Тесты
 
@@ -125,7 +126,7 @@ app/src/androidTest/java/com/example/hw3/
 
 ### Исправленные замечания
 
-Преподаватель указал на два недостатка в первой версии HW5:
+Было два недостатка в HW5:
 
 1. `FavouritesDaoIntegrationTest` тестировал DAO напрямую, а не репозиторий. Исправлено: тест переписан как `GamesRepositoryIntegrationTest` — используется `GamesRepositoryImpl` с реальной Room БД. Это слой, через который приложение реально работает с данными.
 
