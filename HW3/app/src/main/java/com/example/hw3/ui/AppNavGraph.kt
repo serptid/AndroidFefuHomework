@@ -1,6 +1,8 @@
 package com.example.hw3.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
@@ -23,10 +25,12 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
     ) {
         composable(Routes.GAMES_LIST) {
             val vm: GamesListViewModel = hiltViewModel()
+            val uiState by vm.uiState.collectAsState()
+            val searchQuery by vm.searchQuery.collectAsState()
             GamesListScreen(
-                state = vm.gamesState,
-                query = vm.query,
-                isRefreshing = vm.isRefreshing,
+                state = uiState.games,
+                query = searchQuery,
+                isRefreshing = uiState.isRefreshing,
                 onQueryChange = vm::onQueryChange,
                 onFirstLoad = vm::loadGames,
                 onRefresh = vm::refreshGames,
@@ -34,7 +38,7 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
                 onGameClick = { id -> navController.navigate("${Routes.GAME_DETAIL}/$id") },
                 onFavouritesClick = { navController.navigate(Routes.FAVOURITES) },
                 onToggleFavourite = vm::toggleFavourite,
-                isFavourite = vm::isFavourite
+                isFavourite = { id -> uiState.favouriteIds.contains(id) }
             )
         }
 
@@ -44,9 +48,10 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
         ) { backStackEntry ->
             val id = backStackEntry.arguments?.getInt("id") ?: return@composable
             val vm: GameDetailViewModel = hiltViewModel()
+            val state by vm.gameDetailState.collectAsState()
             GameDetailScreen(
                 gameId = id,
-                state = vm.gameDetailState,
+                state = state,
                 onLoad = { vm.loadGameDetail(id) },
                 onRetry = vm::retryDetail,
                 onBack = { navController.popBackStack() }
@@ -55,8 +60,9 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
 
         composable(Routes.FAVOURITES) {
             val vm: FavouritesViewModel = hiltViewModel()
+            val state by vm.favouritesState.collectAsState()
             FavouritesScreen(
-                state = vm.favouritesState,
+                state = state,
                 onRemove = vm::removeFavourite,
                 onBack = { navController.popBackStack() }
             )

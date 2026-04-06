@@ -3,13 +3,15 @@
 package com.example.hw3.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.hw3.ui.UiState
 import com.example.hw3.data.GameDetail
+import com.example.hw3.ui.UiState
 
 @Composable
 fun GameDetailScreen(
@@ -25,7 +27,11 @@ fun GameDetailScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Game details") },
-                navigationIcon = { IconButton(onClick = onBack) { Text("<") } }
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
             )
         }
     ) { padding ->
@@ -59,7 +65,9 @@ fun GameDetailScreen(
                     }
                 }
 
-                else -> {}
+                is UiState.Empty -> {
+                    Text("No details available")
+                }
             }
         }
     }

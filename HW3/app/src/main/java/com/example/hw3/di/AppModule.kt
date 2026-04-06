@@ -2,6 +2,7 @@ package com.example.hw3.di
 
 import android.content.Context
 import androidx.room.Room
+import com.example.hw3.BuildConfig
 import com.example.hw3.data.FreeToGameApi
 import com.example.hw3.data.GamesRepository
 import com.example.hw3.data.GamesRepositoryImpl
@@ -28,7 +29,8 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(): OkHttpClient {
         val logger = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
+                    else HttpLoggingInterceptor.Level.NONE
         }
 
         return OkHttpClient.Builder()
@@ -68,6 +70,7 @@ object DatabaseModule {
         ).build()
 
     @Provides
+    @Singleton
     fun provideFavouriteGamesDao(database: AppDatabase): FavouriteGamesDao =
         database.favouriteGamesDao()
 }

@@ -57,7 +57,7 @@ class GamesViewModelTest {
 
     @Test
     fun initialGamesState_isLoading() {
-        assertEquals(UiState.Loading, gamesListVM.gamesState)
+        assertEquals(UiState.Loading, gamesListVM.uiState.value.games)
     }
 
     @Test
@@ -67,7 +67,7 @@ class GamesViewModelTest {
         gamesListVM.loadGames()
         advanceUntilIdle()
 
-        assertEquals(UiState.Success(listOf(testGame)), gamesListVM.gamesState)
+        assertEquals(UiState.Success(listOf(testGame)), gamesListVM.uiState.value.games)
     }
 
     @Test
@@ -77,45 +77,75 @@ class GamesViewModelTest {
         gamesListVM.loadGames()
         advanceUntilIdle()
 
-        assertTrue(gamesListVM.gamesState is UiState.Error)
-        assertEquals("Ошибка сети.", (gamesListVM.gamesState as UiState.Error).message)
+        assertTrue(gamesListVM.uiState.value.games is UiState.Error)
+        assertEquals("Ошибка сети.", (gamesListVM.uiState.value.games as UiState.Error).message)
     }
 
     @Test
-    fun onQueryChange_noMatch_setsEmptyState() = runTest(mainDispatcherRule.testDispatcher) {
+    fun onQueryChange_noMatch_emitsEmptyState() = runTest(mainDispatcherRule.testDispatcher) {
         repository.gamesResult = Result.success(listOf(testGame))
         gamesListVM.loadGames()
         advanceUntilIdle()
 
-        gamesListVM.onQueryChange("xyznonexistent_query")
-        advanceTimeBy(400)
-
-        assertTrue(gamesListVM.gamesState is UiState.Empty)
-        assertFalse(gamesListVM.gamesState is UiState.Success)
+        gamesListVM.uiState.test {
+            awaitItem()
+            gamesListVM.onQueryChange("xyznonexistent_query")
+            advanceTimeBy(400)
+            val next = awaitItem()
+            assertTrue(next.games is UiState.Empty)
+            assertFalse(next.games is UiState.Success)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
-    fun retryDetail_callsRepositoryAgain() = runTest(mainDispatcherRule.testDispatcher) {
-        repository.gameDetailResult = Result.success(testGameDetail)
-
+    fun retryDetail_emitsErrorThenLoadingThenSuccess() = runTest(mainDispatcherRule.testDispatcher) {
+        repository.gameDetailResult = Result.failure(java.io.IOException())
         gameDetailVM.loadGameDetail(testGame.id)
         advanceUntilIdle()
-        assertEquals(1, repository.getDetailCallCount)
 
-        gameDetailVM.retryDetail()
-        advanceUntilIdle()
-        assertEquals(2, repository.getDetailCallCount)
+        repository.gameDetailResult = Result.success(testGameDetail)
+
+        gameDetailVM.gameDetailState.test {
+            assertTrue(awaitItem() is UiState.Error)
+
+            gameDetailVM.retryDetail()
+
+            assertTrue(awaitItem() is UiState.Loading)
+            val success = awaitItem()
+            assertTrue(success is UiState.Success)
+            assertEquals(testGameDetail, (success as UiState.Success).data)
+
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
     fun toggleFavourite_whenAlreadyFavourite_removes() = runTest(mainDispatcherRule.testDispatcher) {
-        repository.isFavouriteResult = true
+        repository.favouritesFlow.value = listOf(testGame)
+        advanceUntilIdle()
 
         gamesListVM.toggleFavourite(testGame)
         advanceUntilIdle()
 
         assertEquals(1, repository.removeFavouriteCallCount)
         assertEquals(0, repository.addFavouriteCallCount)
+    }
+
+    @Test
+    fun refreshGames_reloadsEvenWhenAlreadySuccess() = runTest(mainDispatcherRule.testDispatcher) {
+        repository.gamesResult = Result.success(listOf(testGame))
+        gamesListVM.loadGames()
+        advanceUntilIdle()
+        assertEquals(UiState.Success(listOf(testGame)), gamesListVM.uiState.value.games)
+
+        val updatedGame = testGame.copy(title = "Updated Game")
+        repository.gamesResult = Result.success(listOf(updatedGame))
+        gamesListVM.refreshGames()
+        advanceUntilIdle()
+
+        assertEquals(UiState.Success(listOf(updatedGame)), gamesListVM.uiState.value.games)
+        assertFalse(gamesListVM.uiState.value.isRefreshing)
     }
 
     @Test

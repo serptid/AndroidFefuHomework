@@ -15,10 +15,6 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/**
- * Интеграционный тест: GamesRepositoryImpl + реальная in-memory Room БД.
- * Проверяет контракт репозитория — слой, через который приложение реально работает с данными.
- */
 @RunWith(AndroidJUnit4::class)
 class GamesRepositoryIntegrationTest {
 
@@ -49,7 +45,6 @@ class GamesRepositoryIntegrationTest {
         database.close()
     }
 
-    // addFavourite → getFavouriteGames возвращает корректные данные через репозиторий
     @Test
     fun addFavourite_getFavouriteGames_returnsCorrectData() = runTest {
         repository.addFavourite(testGame)
@@ -64,7 +59,6 @@ class GamesRepositoryIntegrationTest {
         }
     }
 
-    // Повторный addFavourite не создаёт дубль в реальной БД (нетривиальный)
     @Test
     fun addFavourite_twice_noDuplicateInDatabase() = runTest {
         repository.addFavourite(testGame)
@@ -77,7 +71,6 @@ class GamesRepositoryIntegrationTest {
         }
     }
 
-    // Turbine: полная последовательность эмиссий через репозиторий (нетривиальный Flow-тест)
     @Test
     fun addThenRemoveFavourite_flowEmitsCorrectSequence() = runTest {
         repository.getFavouriteGames().test {

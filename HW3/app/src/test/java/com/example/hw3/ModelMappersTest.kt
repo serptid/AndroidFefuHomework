@@ -25,7 +25,6 @@ class GamesRepositoryUnitTest {
         repository = GamesRepositoryImpl(fakeApi, fakeDao)
     }
 
-    // Репозиторий корректно маппит DTO из API в доменные модели
     @Test
     fun getGames_returnsMappedDomainModels() = runTest {
         fakeApi.gamesResult = listOf(
@@ -50,7 +49,6 @@ class GamesRepositoryUnitTest {
         assertEquals("2013-03-25", games[0].releaseDate)
     }
 
-    // Исключение из API пробрасывается наружу без поглощения
     @Test
     fun getGames_whenApiThrows_propagatesException() = runTest {
         fakeApi.throwOnGetGames = IOException("Network error")
@@ -63,7 +61,6 @@ class GamesRepositoryUnitTest {
         }
     }
 
-    // После addFavourite — isFavourite возвращает true
     @Test
     fun addFavourite_thenIsFavourite_returnsTrue() = runTest {
         val game = Game(
@@ -77,7 +74,6 @@ class GamesRepositoryUnitTest {
         assertTrue(repository.isFavourite(5))
     }
 
-    // Повторный addFavourite с тем же ID не создаёт дубль (нетривиальный)
     @Test
     fun addFavourite_twice_doesNotCreateDuplicate() = runTest {
         val game = Game(

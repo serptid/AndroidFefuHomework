@@ -11,7 +11,6 @@ class FakeGamesRepository : GamesRepository {
     var gamesResult: Result<List<Game>> = Result.success(emptyList())
     var gameDetailResult: Result<GameDetail> = Result.failure(NotImplementedError())
     val favouritesFlow = MutableStateFlow<List<Game>>(emptyList())
-    var isFavouriteResult: Boolean = false
 
     var getGamesCallCount = 0
     var getDetailCallCount = 0
@@ -45,5 +44,5 @@ class FakeGamesRepository : GamesRepository {
         favouritesFlow.emit(favouriteSet.toList())
     }
 
-    override suspend fun isFavourite(id: Int): Boolean = isFavouriteResult
+    override suspend fun isFavourite(id: Int): Boolean = favouriteSet.any { it.id == id }
 }
