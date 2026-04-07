@@ -1,0 +1,74 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
+package com.example.hw3.ui.screens
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.example.hw3.data.GameDetail
+import com.example.hw3.ui.UiState
+
+@Composable
+fun GameDetailScreen(
+    gameId: Int,
+    state: UiState<GameDetail>,
+    onLoad: () -> Unit,
+    onRetry: () -> Unit,
+    onBack: () -> Unit
+) {
+    LaunchedEffect(gameId) { onLoad() }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Game details") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            when (state) {
+                is UiState.Loading -> {
+                    CircularProgressIndicator()
+                }
+
+                is UiState.Error -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(state.message)
+                        Button(onClick = onRetry) { Text("Retry") }
+                    }
+                }
+
+                is UiState.Success -> {
+                    val game = state.data
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(game.title, style = MaterialTheme.typography.titleLarge)
+                        Text("Genre: ${game.genre}")
+                        Text("Platform: ${game.platform}")
+                        Text("Release: ${game.releaseDate}")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(game.description, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+
+                is UiState.Empty -> {
+                    Text("No details available")
+                }
+            }
+        }
+    }
+}
