@@ -42,8 +42,6 @@ unit-тесты (test/):
 - GamesRepositoryIntegrationTest.kt — 3 теста с реальной in-memory Room БД и FakeFreeToGameApi: добавление, дубли, Flow-последовательность add-remove
 - GamesListScreenTest.kt — 3 теста: state-machine Error-Retry-Success показывает игру, NavHost клик по игре передаёт верный ID, NavHost клик по иконке открывает экран избранного
 
-## lab5_fix
-
 FavouritesDaoIntegrationTest переписан: тестирует GamesRepositoryImpl с реальной Room, а не DAO напрямую.
 
 ModelMappersTest заменён на GamesRepositoryUnitTest: вместо тривиального маппинга полей проверяется поведение репозитория.
