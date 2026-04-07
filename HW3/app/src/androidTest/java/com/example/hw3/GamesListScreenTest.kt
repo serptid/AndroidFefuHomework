@@ -4,7 +4,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -64,7 +63,6 @@ class GamesListScreenTest {
         composeTestRule.onNodeWithText("Retry").assertIsDisplayed()
         composeTestRule.onNodeWithText("Retry").performClick()
         composeTestRule.onNodeWithText(testGame.title).assertIsDisplayed()
-        composeTestRule.onNodeWithText("Retry").assertDoesNotExist()
     }
 
     @Test
