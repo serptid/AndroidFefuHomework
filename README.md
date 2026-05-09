@@ -1,57 +1,117 @@
-# Android. Каталог бесплатных игр
+ФИО: Прокопенко Сергей Игоревич
+Группа: Б9123-09.03.01цд
 
-Стек: Kotlin, Jetpack Compose, Retrofit, Room, Hilt, Coroutines, Flow, Navigation Compose.
+# Free Games — Финальный проект
 
-## lab6
+Приложение-каталог бесплатных игр на базе [FreeToGame API](https://www.freetogame.com/api-doc).
+Развито до состояния персонализированного offline-first мини-продукта.
 
-Реактивный пайплайн в GamesListViewModel из трёх независимых источников:
+---
 
-1. MutableStateFlow<String> — поисковый запрос, debounce(350) + distinctUntilChanged
-2. MutableSharedFlow<Unit>(replay=1) + flatMapLatest — триггеры загрузки и refresh, отменяет предыдущий незавершённый запрос
-3. repository.getFavouriteGames().map { Set<Int> }.stateIn — избранные из Room
+## Что добавлено в финальной работе
 
-Все три объединяются через combine в GamesScreenState(games, isRefreshing, favouriteIds).
+На базе существующего приложения (список игр, детальная страница, Retrofit + Room + Hilt) добавлены:
 
-Публичный API: val uiState: StateFlow<GamesScreenState> и val searchQuery: StateFlow<String>. AppNavGraph собирает их через collectAsState().
+- **Система статусов игр** — пользователь может отметить любую игру как «Хочу / Играю / Сыграл / Бросил»
+- **История просмотров** — автоматически фиксирует каждое открытие детальной страницы
+- **Offline-first кэш деталей** — детальные страницы доступны без интернета после первого открытия
+- **Предзагрузка деталей при старте** — при наличии сети все детали кэшируются в фоне сразу после загрузки списка
+- **Экран настроек** — тема оформления (4 варианта), TTL кэша, размер истории, очистка кэша
+- **Экран профиля** — имя пользователя, статистика просмотров, любимый жанр, разбивка по статусам
+- **Жанровый фильтр** — горизонтальные чипы над списком игр
+- **Сортировка** — по названию / дате выхода / жанру, выбор сохраняется между запусками
+- **Избранное** — с отображением в профиле и счётчиком
+- **Кнопка «Поделиться»** на детальной странице
+- **FAB «Случайная игра»** на главном экране
+- **4 темы оформления**: Gaming Dark, AMOLED, Neon, Light
 
-replay=1 у SharedFlow нужен для тестов с StandardTestDispatcher: гарантирует что tryEmit не потеряется до старта stateIn-корутины.
+---
 
-## lab6_fix
+## Новые пользовательские данные (Room, версия 5)
 
-Исправления по замечаниям преподавателя.
+| Сущность | Таблица | Назначение |
+|---|---|---|
+| `UserGameStatusEntity` | `user_game_status` | Статус пользователя для каждой игры (enum: INTERESTED / PLAYING / PLAYED / DROPPED) |
+| `GameHistoryEntity` | `game_history` | История просмотров: gameId, title, thumbnail, genre, platform, viewedAt, viewCount |
+| `CachedGameEntity` | `cached_games` | Кэш списка игр с меткой времени для TTL |
+| `CachedGameDetailEntity` | `cached_game_details` | Кэш детальных страниц: полное описание, разработчик, ссылка, URL скриншотов |
+| `FavouriteGameEntity` | `favourite_games` | Избранные игры |
 
-mutableStateOf заменён на StateFlow во всех трёх VM. GamesListViewModel экспонирует uiState и searchQuery, FavouritesViewModel и GameDetailViewModel — свои StateFlow через stateIn и asStateFlow соответственно.
+Все данные создаются и управляются пользователем. Они влияют на поведение приложения: статусы отображаются в списке и на детальной странице, история определяет «любимый жанр» в профиле, TTL управляет частотой обновления.
 
-Двойной источник правды для поискового запроса устранён: var query by mutableStateOf удалён, TextField читает searchQuery напрямую.
+---
 
-toggleFavourite больше не вызывает repository.isFavourite() — проверка через favouriteIdsFlow.value.contains(id).
+## Новые пользовательские сценарии
 
-GameDetailScreen явно обрабатывает UiState.Empty.
+### Сценарий 1 — Статусы игр (существенный, новая сущность)
+Пользователь открывает игру → выбирает статус из 4 вариантов (или снимает повторным нажатием).
+- Статус-бейдж отображается на карточке в списке игр
+- Разбивка по статусам видна на экране профиля
+- Маршрут данных: `GameDetailScreen` → `GameDetailViewModel` → `StatusRepository` → `UserGameStatusDao` → Room → Flow → UI
 
-HTTP-логирование активно только в debug-сборках. provideFavouriteGamesDao помечен @Singleton. searchQuery экспонируется через asStateFlow(). FavouritesViewModel использует WhileSubscribed(5000). Кнопки назад используют Icons.AutoMirrored.Filled.ArrowBack.
+### Сценарий 2 — История просмотров (существенный)
+Каждое открытие детальной страницы автоматически фиксируется. При повторном просмотре увеличивается счётчик (`viewCount`). История обрезается до заданного максимума (`historyMaxSize` из настроек). Пользователь может удалить отдельную запись или очистить всю историю.
+- Топ-жанр выводится на экране профиля
+- Маршрут: `GameDetailViewModel` → `HistoryRepository` → `GameHistoryDao` → Room → Flow → `HistoryScreen` + `ProfileScreen`
 
-## lab5
+### Сценарий 3 — Offline-first кэш деталей (существенный, новая сущность)
+Детальная страница игры загружается из Room, если уже кэширована (cache-first). При первом запросе данные сохраняются. Скриншоты (URL) хранятся в поле `screenshotUrls` как строка через «|». Кнопка «Очистить кэш» в настройках удаляет и список, и детали. После первого запуска с сетью все игры доступны офлайн.
 
-Тесты: kotlinx-coroutines-test 1.8.1, Turbine 1.1.0, hilt-android-testing 2.52, navigation-testing 2.7.7.
+---
 
-unit-тесты (test/):
-- GamesViewModelTest.kt — 9 тестов: начальное состояние, успех/ошибка загрузки, refreshGames перезагружает при Success, debounce поиска через Turbine, retry проверяет полную последовательность Error-Loading-Success, toggleFavourite, Flow-последовательности
-- ModelMappersTest.kt (класс GamesRepositoryUnitTest) — 4 теста: маппинг DTO, пробрасывание исключений, isFavourite после добавления, защита от дублей
+## Offline-first
 
-инструментальные тесты (androidTest/):
-- GamesRepositoryIntegrationTest.kt — 3 теста с реальной in-memory Room БД и FakeFreeToGameApi: добавление, дубли, Flow-последовательность add-remove
-- GamesListScreenTest.kt — 3 теста: state-machine Error-Retry-Success показывает игру, NavHost клик по игре передаёт верный ID, NavHost клик по иконке открывает экран избранного
+| Данные | Поведение без сети |
+|---|---|
+| Список игр | Возвращается из `cached_games`, даже если TTL истёк (stale fallback) |
+| Детали игры | Возвращаются из `cached_game_details` немедленно (cache-first) |
+| История | Хранится в Room, полностью офлайн |
+| Статусы | Хранятся в Room, полностью офлайн |
+| Избранное | Хранится в Room, полностью офлайн |
 
-## lab5_fix
+TTL кэша настраивается пользователем (6 / 12 / 24 / 48 ч). При наличии данных в Room отсутствие сети не делает приложение неработоспособным.
 
-FavouritesDaoIntegrationTest переписан: тестирует GamesRepositoryImpl с реальной Room, а не DAO напрямую.
+---
 
-ModelMappersTest заменён на GamesRepositoryUnitTest: вместо тривиального маппинга полей проверяется поведение репозитория.
+## Фоновая обработка (WorkManager)
 
-## Запуск
+`CacheRefreshWorker` (@HiltWorker, CoroutineWorker):
+- Запускается каждые **6 часов** при наличии сети (`NetworkType.CONNECTED`)
+- Вызывает `forceRefreshGames()` — принудительно обновляет список игр в Room
+- При ошибке повторяет попытку (до 3 раз), затем возвращает `Result.failure()`
+- Политика `ExistingPeriodicWorkPolicy.KEEP` — не запускает дублирующую задачу
+- Инициализируется в `GamesApplication.onCreate()` через `Configuration.Provider` + `HiltWorkerFactory`
+- Зачем: обеспечивает актуальность кэша списка игр даже если пользователь не открывал приложение
 
-Unit-тесты: ./gradlew test
+---
 
-Инструментальные тесты: ./gradlew connectedAndroidTest
+## Тесты
 
-Если путь к домашней папке содержит кириллицу, перед запуском установить переменную среды GRADLE_USER_HOME=C:\gradle-home (уже прописано в gradlew.bat).
+### Unit-тесты (`app/src/test`)
+
+| Класс | Тесты |
+|---|---|
+| `CacheLogicTest` | TTL-кэш свеж → API не вызывается; устаревший кэш → обновление; API недоступен + stale → fallback; API недоступен + пустой кэш → exception; forceRefresh всегда идёт в API; **getGameDetail кэшируется при первом вызове**; **второй вызов из кэша без API**; **clearGamesCache очищает и детали** |
+| `HistoryRepositoryTest` | Добавление новой записи; повторный просмотр увеличивает viewCount; обрезка до maxSize; очистка всей истории; удаление одной записи |
+| `StatusRepositoryTest` | Установка статуса; снятие статуса; наблюдение всех статусов; обновление существующего |
+| `GamesViewModelTest` | Initial state Loading; loadGames success; loadGames error с русским текстом; поиск без результатов → Empty; retry detail; toggleFavourite remove; refreshGames; Flow-последовательность избранного |
+| `ModelMappersTest` (GamesRepositoryUnitTest) | Маппинг DTO → Domain; исключение при ошибке API; addFavourite; дубликат в избранном |
+
+### Instrumented-тесты (`app/src/androidTest`)
+
+| Класс | Тесты |
+|---|---|
+| `GamesListScreenTest` | Error → Retry → Success переход; клик на игру → навигация с правильным id; клик «Избранное» → навигация |
+| `GamesRepositoryIntegrationTest` | addFavourite + getFavouriteGames; нет дублей; add→remove последовательность в Flow |
+
+---
+
+## Архитектура
+
+```
+UI (Compose) → ViewModel (StateFlow/combine) → Repository → DAO (Room) / API (Retrofit)
+                                            ↘ DataStore (AppPreferences)
+WorkManager → Repository → DAO
+```
+
+Стек: Kotlin, Jetpack Compose (Material 3), Hilt, Room 5, DataStore, WorkManager, Retrofit, Coil, Coroutines + Flow, Navigation Compose.
