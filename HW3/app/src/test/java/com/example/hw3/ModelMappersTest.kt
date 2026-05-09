@@ -16,13 +16,17 @@ class GamesRepositoryUnitTest {
 
     private lateinit var fakeApi: FakeFreeToGameApi
     private lateinit var fakeDao: FakeFavouriteGamesDao
+    private lateinit var fakeCachedDao: FakeCachedGameDao
+    private lateinit var fakeCachedDetailDao: FakeCachedGameDetailDao
     private lateinit var repository: GamesRepositoryImpl
 
     @Before
     fun setUp() {
         fakeApi = FakeFreeToGameApi()
         fakeDao = FakeFavouriteGamesDao()
-        repository = GamesRepositoryImpl(fakeApi, fakeDao)
+        fakeCachedDao = FakeCachedGameDao()
+        fakeCachedDetailDao = FakeCachedGameDetailDao()
+        repository = GamesRepositoryImpl(fakeApi, fakeDao, fakeCachedDao, fakeCachedDetailDao)
     }
 
     @Test
@@ -39,7 +43,7 @@ class GamesRepositoryUnitTest {
             )
         )
 
-        val games = repository.getGames()
+        val games = repository.getGames(cacheTtlHours = 0)
 
         assertEquals(1, games.size)
         assertEquals(1, games[0].id)
@@ -54,7 +58,7 @@ class GamesRepositoryUnitTest {
         fakeApi.throwOnGetGames = IOException("Network error")
 
         try {
-            repository.getGames()
+            repository.getGames(cacheTtlHours = 0)
             fail("Expected IOException to be thrown")
         } catch (e: IOException) {
             assertEquals("Network error", e.message)

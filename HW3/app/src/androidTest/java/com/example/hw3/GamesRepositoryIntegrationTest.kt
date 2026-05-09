@@ -37,7 +37,7 @@ class GamesRepositoryIntegrationTest {
         database = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        repository = GamesRepositoryImpl(FakeFreeToGameApi(), database.favouriteGamesDao())
+        repository = GamesRepositoryImpl(FakeFreeToGameApi(), database.favouriteGamesDao(), database.cachedGameDao(), database.cachedGameDetailDao())
     }
 
     @After

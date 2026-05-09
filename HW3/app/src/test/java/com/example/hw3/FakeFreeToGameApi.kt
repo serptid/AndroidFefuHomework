@@ -9,12 +9,17 @@ class FakeFreeToGameApi : FreeToGameApi {
     var gamesResult: List<GameDto> = emptyList()
     var gameDetailResult: GameDetailDto? = null
     var throwOnGetGames: Exception? = null
+    var getGamesCallCount = 0
+    var getDetailCallCount = 0
 
     override suspend fun getGames(): List<GameDto> {
+        getGamesCallCount++
         throwOnGetGames?.let { throw it }
         return gamesResult
     }
 
-    override suspend fun getGameDetail(id: Int): GameDetailDto =
-        gameDetailResult ?: error("gameDetailResult not configured")
+    override suspend fun getGameDetail(id: Int): GameDetailDto {
+        getDetailCallCount++
+        return gameDetailResult ?: error("gameDetailResult not configured")
+    }
 }

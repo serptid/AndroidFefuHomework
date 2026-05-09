@@ -19,7 +19,12 @@ class FakeGamesRepository : GamesRepository {
 
     private val favouriteSet = mutableListOf<Game>()
 
-    override suspend fun getGames(): List<Game> {
+    override suspend fun getGames(cacheTtlHours: Int): List<Game> {
+        getGamesCallCount++
+        return gamesResult.getOrThrow()
+    }
+
+    override suspend fun forceRefreshGames(): List<Game> {
         getGamesCallCount++
         return gamesResult.getOrThrow()
     }
@@ -28,6 +33,8 @@ class FakeGamesRepository : GamesRepository {
         getDetailCallCount++
         return gameDetailResult.getOrThrow()
     }
+
+    override suspend fun clearGamesCache() {}
 
     override fun getFavouriteGames(): Flow<List<Game>> = favouritesFlow
 

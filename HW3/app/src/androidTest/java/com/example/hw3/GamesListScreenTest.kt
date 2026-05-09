@@ -17,6 +17,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.hw3.data.Game
 import com.example.hw3.ui.Routes
+import com.example.hw3.ui.SortOrder
 import com.example.hw3.ui.UiState
 import com.example.hw3.ui.screens.GamesListScreen
 import org.junit.Assert.assertEquals
@@ -49,19 +50,28 @@ class GamesListScreenTest {
                 state = state,
                 query = "",
                 isRefreshing = false,
+                genres = emptyList(),
+                selectedGenre = null,
+                sortOrder = SortOrder.BY_TITLE,
                 onQueryChange = {},
+                onGenreSelect = {},
+                onSortChange = {},
                 onFirstLoad = {},
                 onRefresh = {},
                 onRetry = { state = UiState.Success(listOf(testGame)) },
                 onGameClick = {},
                 onFavouritesClick = {},
+                onHistoryClick = {},
+                onSettingsClick = {},
+                onProfileClick = {},
                 onToggleFavourite = {},
-                isFavourite = { false }
+                isFavourite = { false },
+                gameStatus = { null }
             )
         }
 
-        composeTestRule.onNodeWithText("Retry").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Retry").performClick()
+        composeTestRule.onNodeWithText("Повторить").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Повторить").performClick()
         composeTestRule.onNodeWithText(testGame.title).assertIsDisplayed()
     }
 
@@ -70,23 +80,30 @@ class GamesListScreenTest {
         val navController = TestNavHostController(ApplicationProvider.getApplicationContext())
 
         composeTestRule.setContent {
-            navController.navigatorProvider.addNavigator(
-                androidx.navigation.compose.ComposeNavigator()
-            )
+            navController.navigatorProvider.addNavigator(androidx.navigation.compose.ComposeNavigator())
             NavHost(navController = navController, startDestination = Routes.GAMES_LIST) {
                 composable(Routes.GAMES_LIST) {
                     GamesListScreen(
                         state = UiState.Success(listOf(testGame)),
                         query = "",
                         isRefreshing = false,
+                        genres = emptyList(),
+                        selectedGenre = null,
+                        sortOrder = SortOrder.BY_TITLE,
                         onQueryChange = {},
+                        onGenreSelect = {},
+                        onSortChange = {},
                         onFirstLoad = {},
                         onRefresh = {},
                         onRetry = {},
                         onGameClick = { id -> navController.navigate("${Routes.GAME_DETAIL}/$id") },
                         onFavouritesClick = { navController.navigate(Routes.FAVOURITES) },
+                        onHistoryClick = {},
+                        onSettingsClick = {},
+                        onProfileClick = {},
                         onToggleFavourite = {},
-                        isFavourite = { false }
+                        isFavourite = { false },
+                        gameStatus = { null }
                     )
                 }
                 composable(
@@ -98,7 +115,6 @@ class GamesListScreenTest {
         }
 
         composeTestRule.onNodeWithText(testGame.title).performClick()
-
         assertEquals("${Routes.GAME_DETAIL}/{id}", navController.currentDestination?.route)
         assertEquals(testGame.id, navController.currentBackStackEntry?.arguments?.getInt("id"))
     }
@@ -108,23 +124,30 @@ class GamesListScreenTest {
         val navController = TestNavHostController(ApplicationProvider.getApplicationContext())
 
         composeTestRule.setContent {
-            navController.navigatorProvider.addNavigator(
-                androidx.navigation.compose.ComposeNavigator()
-            )
+            navController.navigatorProvider.addNavigator(androidx.navigation.compose.ComposeNavigator())
             NavHost(navController = navController, startDestination = Routes.GAMES_LIST) {
                 composable(Routes.GAMES_LIST) {
                     GamesListScreen(
                         state = UiState.Success(listOf(testGame)),
                         query = "",
                         isRefreshing = false,
+                        genres = emptyList(),
+                        selectedGenre = null,
+                        sortOrder = SortOrder.BY_TITLE,
                         onQueryChange = {},
+                        onGenreSelect = {},
+                        onSortChange = {},
                         onFirstLoad = {},
                         onRefresh = {},
                         onRetry = {},
                         onGameClick = { id -> navController.navigate("${Routes.GAME_DETAIL}/$id") },
                         onFavouritesClick = { navController.navigate(Routes.FAVOURITES) },
+                        onHistoryClick = {},
+                        onSettingsClick = {},
+                        onProfileClick = {},
                         onToggleFavourite = {},
-                        isFavourite = { false }
+                        isFavourite = { false },
+                        gameStatus = { null }
                     )
                 }
                 composable(
@@ -135,8 +158,7 @@ class GamesListScreenTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription("Favourites").performClick()
-
+        composeTestRule.onNodeWithContentDescription("Избранное").performClick()
         assertEquals(Routes.FAVOURITES, navController.currentDestination?.route)
     }
 }

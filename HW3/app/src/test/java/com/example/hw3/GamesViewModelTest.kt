@@ -3,6 +3,7 @@ package com.example.hw3
 import app.cash.turbine.test
 import com.example.hw3.data.Game
 import com.example.hw3.data.GameDetail
+import com.example.hw3.data.local.AppPreferences
 import com.example.hw3.ui.GameDetailViewModel
 import com.example.hw3.ui.GamesListViewModel
 import com.example.hw3.ui.UiState
@@ -22,6 +23,9 @@ class GamesViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private lateinit var repository: FakeGamesRepository
+    private lateinit var historyRepository: FakeHistoryRepository
+    private lateinit var statusRepository: FakeStatusRepository
+    private lateinit var appPreferences: AppPreferences
     private lateinit var gamesListVM: GamesListViewModel
     private lateinit var gameDetailVM: GameDetailViewModel
 
@@ -51,8 +55,11 @@ class GamesViewModelTest {
     @Before
     fun setup() {
         repository = FakeGamesRepository()
-        gamesListVM = GamesListViewModel(repository)
-        gameDetailVM = GameDetailViewModel(repository)
+        historyRepository = FakeHistoryRepository()
+        statusRepository = FakeStatusRepository()
+        appPreferences = AppPreferences(FakePreferencesDataStore())
+        gamesListVM = GamesListViewModel(repository, statusRepository, appPreferences)
+        gameDetailVM = GameDetailViewModel(repository, historyRepository, statusRepository, appPreferences)
     }
 
     @Test
