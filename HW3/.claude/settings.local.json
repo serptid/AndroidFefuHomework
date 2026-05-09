@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs ls:*)",
+      "Bash(SET GRADLE_USER_HOME=C:\\\\gradle-home:*)",
+      "Bash(export:*)"
+    ]
+  }
+}
